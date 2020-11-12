@@ -54,8 +54,10 @@ end
 # get tuple: lig, pathgene, target
 function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame)
 	dat = Vector{Vector{DataFrame}}()
+	gr = Vector{Vector{Dict}}()
 	for i in 1:Threads.nthreads()
 	  push!(dat,Vector{DataFrame}())
+	  push!(gr,Vector{Dict}())
 	end
 	Threads.@threads for bc in eachrow(bcs)
 		bcode = bc.barcode
@@ -69,8 +71,11 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 		insertcols!(ag.exp,1,(:subtype=>fill(bcnctype,size(ag.exp,1))))
 		insertcols!(ag.exp,1,(:type=>fill(bctype,size(ag.exp,1))))
 		push!(dat[Threads.threadid()],ag.exp)
+		push!(gr[Threads.threadid()],Dict(Symbol(bcode)=>ag.ag))
 	end
 	dat = reduce(vcat,reduce(vcat,dat))
+	gr = reduce(vcat,reduce(vcat,gr))
+	return (df=dat,g=gr)
 end
 
 # for several pathways
