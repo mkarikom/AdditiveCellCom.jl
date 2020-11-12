@@ -28,27 +28,29 @@ function getPathSignals(g::AbstractMetaGraph,dist::Int,bc::DataFrameRow)
 	(ag=ag,exp=expTable)
 end
 
-# for a single pathway
-# for a single cell
-# for multiple target trees
+# for a single target tree
+# for multiple cells
 # get tuple: lig, pathgene, target
 function getCellTrees(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame)
 	df = DataFrame();
 	for bc in eachrow(bcs)
-		bcode = bc[:barcode]
-		bctype = bc[:labels]
+		bcode = bc.barcode
+		hpf = bc.hpf
+		bctype = bc.celltype
+		bcnctype = bc.labels
 		println("getting bc $bcode");
 		ag = getPathSignals(targTree,dist,bc);
+		insertcols!(ag.exp,1,(:hpf=>fill(hpf,size(ag.exp,1))))
 		insertcols!(ag.exp,1,(:barcode=>fill(bcode,size(ag.exp,1))))
-		insertcols!(ag.exp,1,(:label=>fill(bctype,size(ag.exp,1))))
+		insertcols!(ag.exp,1,(:subtype=>fill(bcnctype,size(ag.exp,1))))
+		insertcols!(ag.exp,1,(:type=>fill(bctype,size(ag.exp,1))))
 		append!(df,ag.exp);
 	end
 	df
 end
 
-# for a single pathway
-# for a single cell
-# for multiple target trees
+# for a single target tree
+# for multiple cells
 # get tuple: lig, pathgene, target
 function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame)
 	dat = Vector{Vector{DataFrame}}()
@@ -56,11 +58,13 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 	  push!(dat,Vector{DataFrame}())
 	end
 	Threads.@threads for bc in eachrow(bcs)
-		bcode = bc[:barcode]
-		bctype = bc[:celltype]
-		bcnctype = bc[:labels]
+		bcode = bc.barcode
+		hpf = bc.hpf
+		bctype = bc.celltype
+		bcnctype = bc.labels
 		println("getting bc $bcode");
 		ag = getPathSignals(targTree,dist,bc);
+		insertcols!(ag.exp,1,(:hpf=>fill(hpf,size(ag.exp,1))))
 		insertcols!(ag.exp,1,(:barcode=>fill(bcode,size(ag.exp,1))))
 		insertcols!(ag.exp,1,(:subtype=>fill(bcnctype,size(ag.exp,1))))
 		insertcols!(ag.exp,1,(:type=>fill(bctype,size(ag.exp,1))))
@@ -68,7 +72,6 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 	end
 	dat = reduce(vcat,reduce(vcat,dat))
 end
-
 
 # for several pathways
 # for a collection of cells do:

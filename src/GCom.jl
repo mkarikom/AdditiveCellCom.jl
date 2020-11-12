@@ -2,11 +2,11 @@ module GCom
 
 using Turing
 using DataFrames,LightGraphs,MetaGraphs
-using PCquery,SeuratRDS
+using PCquery
 
 export loadData,getPathSignal,getMultiPathModel,fitModel
 
-export annotateGraphLRT!,getLigRecTargs,getTxGraphs
+export annotateGraphLRT!,getLigRecTargs,getTxGraphs,getLigRecTarg,getTxGraph
 
 include("annotate.jl") # modification of graph
 

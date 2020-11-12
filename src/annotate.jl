@@ -17,12 +17,7 @@ function annotateGraphLRT!(g,dbParams)
 end
 
 
-# # find the simple lig rec
-# lrverts = filterVertices(g,:roleLR,v->true,p->get(p,:roleLR,missing)) # the vertices representing complexes
-# # find the complexes which include a ligand, receptor or both, excluding simple lig rec
-
 # traverse inward edges from a start node and get values of target features
-# return a dict with a vector of verts for each key
 function getLRtree(g::AbstractMetaGraph,dir::Symbol,
 					start::Int,targetFeatures::Dict)
 	# get the subgraph
@@ -37,10 +32,51 @@ function getLRtree(g::AbstractMetaGraph,dir::Symbol,
 			vertFound[v]=sort(res.ind)
 		end
 	end
-	(v=vertFound,g=pc_sg)
+	(v=vertFound,g=pc_sg,vmap=vmap)
 end
 
-# identify biochemical reactions where the input is Dna and output is protein
+# like getLRtree except that it is protein target agnostic to account for degenerate control reacions like https://reactome.org/content/detail/R-HSA-1980065
+# traverse inward edges from the controller of a target gene, and append the graph to the gene as an out neighbor
+# filter gene inneighbors so that only the target gene is included
+function getLRgeneTree(g::AbstractMetaGraph,dir::Symbol,
+					geneInd::Int,ctrlInd::Int,targetFeatures::Dict)
+	# get the subgraph
+	ng = bfs_tree(g, ctrlInd, dir=dir)
+	connected_v = findall(x->x > 0,degree(ng))
+	pc_sg,vmap = induced_subgraph(g,connected_v)
+
+	# find all the extraneous inneighbor genes of the ctrl vertex (these are caused by degenerate ctrl rxn like https://reactome.org/content/detail/R-HSA-1980065)
+	pc_sg_ctrl_in = inneighbors(pc_sg,findfirst(v->v==ctrlInd,vmap))
+	pc_sg_genes = filterVertices(pc_sg,:entIdDb,n->n=="ensembl")
+	pc_sg_gene_ind = findfirst(v->v==geneInd,vmap)
+	nontarg = setdiff(pc_sg_genes,pc_sg_gene_ind)
+	vremove = intersect(nontarg,pc_sg_ctrl_in)
+
+	# remove extraneous genes and update the vmap for the induced subgraph
+	for v in vremove
+		rem_vertex!(pc_sg, v) # remove the vertex
+		vmap[end] = vmap[v]
+		vmap = vmap[1:end-1]
+	end
+
+	# get all target features
+	vertFound = Dict()
+	for k in keys(targetFeatures)
+		k_fnd = []
+		for v in targetFeatures[k]
+			res = filterVertices(pc_sg,k,p->p==v,p->get(p,k,missing)) # the vertices representing complexes
+			vertFound[v]=sort(res.ind)
+		end
+	end
+	(v=vertFound,g=pc_sg,vmap=vmap)
+end
+
+# identify unique triples of:
+#    1. ctrlInd (the vertex ind of the control physical entity that activates or suppresses transcription at geneInd))
+#    2. geneInd (the vertex ind of gene whose transcription is controlled by "ctrlInd", in general ctrlInd->geneInd is one-to-many)
+#    3. protInd (the vertex ind of protein product, in general geneInd->protInd is one-to-many)
+# CAUTION: ctrl rxns like https://reactome.org/content/detail/R-HSA-1980065 will cause the geneInd->protInd to break
+# In order to circumvent this only look at unique(edgeTable,[:ctrlInd,:geneInd]) for downstream analysis
 function getTransTargs(g::AbstractMetaGraph)
     ctrl = ["http://www.biopax.org/release/biopax-level3.owl#Catalysis",
  			"http://www.biopax.org/release/biopax-level3.owl#Control"]
@@ -85,23 +121,19 @@ function getTransTargs(g::AbstractMetaGraph)
 	edgeTable
 end
 
+# get a vector of single-target trees, one for each unique target gene in txList
 function getTxGraphs(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFeatures::Dict)
-	# pull the protein ind (should already have ENSG id for zebrafish)
 	paths = []
 	for i in 1:size(txList,1)
-		protInd = txList[i,:protInd]
-		lrt = getLRtree(g,:in,protInd,targetFeatures)
+		# get the subgraph of all reachable vertices from a transcriptional target
+		geneInd = txList[i,:geneInd]
+		ctrlInd = txList[i,:ctrlInd]
+		lrt = getLRgeneTree(g,:in,geneInd,ctrlInd,targetFeatures)
+		sgCtrlInd = findfirst(v->v==ctrlInd,lrt.vmap) # the vert ind of the ctrl entity in the new subgraph
+		sgGeneInd = findfirst(v->v==geneInd,lrt.vmap) # the vert ind of the target gene in the new subgraph
 
-		# find the product protInd in the new lrt graph
-		inds = []
-		for v in 1:nv(lrt.g)
-			prp = props(lrt.g,v)
-			if prp == props(g,protInd)
-				push!(inds,v)
-			end
-		end
-		orig = reduce(vcat,inds)
-		p = dijkstra_shortest_paths(reverse(lrt.g), orig);
+		# trace all paths from the product to the target features, eg ligands and receptors
+		p = dijkstra_shortest_paths(reverse(lrt.g), sgCtrlInd);
 		pathverts = []
 		allverts = Vector{eltype(collect(vertices(g)))}()
 		dstverts = []
@@ -109,10 +141,11 @@ function getTxGraphs(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFe
 			println("processing target feature $ft")
 			dst = filterVertices(lrt.g,:roleLR,f->f==ft)
 			ep = enumerate_paths(p,dst)
-			push!(pathverts,(ft,unique(reduce(vcat,ep))))
-			push!(allverts,reduce(vcat,ep)...)
-			push!(dstverts,(ft,unique(dst)))
+			push!(pathverts,(ft,unique(reduce(vcat,ep)))) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+			push!(allverts,reduce(vcat,ep)...) # eg for ex above push all verts in path [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127]...
+			push!(dstverts,(ft,unique(dst))) # eg for ex above push just the feature verts
 		end
+		push!(allverts,sgGeneInd) # add the target gene to the vertex list
 		allverts = unique(allverts)
 
 		# construct the lig rec targ graph
@@ -120,7 +153,7 @@ function getTxGraphs(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFe
 		recind = filterVertices(lrtg,:roleLR,f->f=="receptor",p->get(p,:ensId,missing))
 		ligind = filterVertices(lrtg,:roleLR,f->f=="ligand",p->get(p,:ensId,missing))
 		targgene = props(g,txList[i,:geneInd])[:entId]
-		targind = filterVertices(lrtg,:ensId,f->f==targgene)
+		targind = findfirst(v->v==sgGeneInd,vmap)
 		recgenes = unique(recind.val)
 		liggenes = unique(ligind.val)
 		push!(paths,(recind=recind,
@@ -134,12 +167,65 @@ function getTxGraphs(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFe
 	paths
 end
 
+# get a multi-target tree, representing the union of all single-target trees for each unique target protein in txList
+# where target protein is a unique protein product of a transcriptional target gene
+function getTxGraph(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFeatures::Dict)
+	# get the subgraph of all reachable vertices from a set of transcriptional targets
+
+	pathverts = []
+	allverts = Vector{eltype(collect(vertices(g)))}()
+	dstverts = []
+	for i in 1:size(txList,1)
+		# get the subgraph of all reachable vertices from a transcriptional target
+		geneInd = txList[i,:geneInd]
+		ctrlInd = txList[i,:ctrlInd]
+		lrt = getLRgeneTree(g,:in,geneInd,ctrlInd,targetFeatures)
+		sgCtrlInd = findfirst(v->v==ctrlInd,lrt.vmap) # the vert ind of the ctrl entity in the new subgraph
+		sgGeneInd = findfirst(v->v==geneInd,lrt.vmap) # the vert ind of the target gene in the new subgraph
+
+		# trace all paths from the product to the target features, eg ligands and receptors
+		p = dijkstra_shortest_paths(reverse(lrt.g), sgCtrlInd);
+		for ft in targetFeatures[:roleLR]
+			println("processing target feature $ft")
+			dst = filterVertices(lrt.g,:roleLR,f->f==ft)
+			ep = enumerate_paths(p,dst)
+			push!(pathverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(reduce(vcat,ep))])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+			push!(allverts,lrt.vmap[unique(reduce(vcat,ep))]...) # eg for ex above push all verts in path [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127]...
+			push!(dstverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(dst)])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+		end
+		push!(allverts,geneInd) # add the target gene to the vertex list
+	end
+	allverts = unique(allverts)
+
+	# construct the lig rec targ graph
+	lrtg,vmap = induced_subgraph(g,allverts)
+	recinds = filterVertices(lrtg,:roleLR,f->f=="receptor",p->get(p,:ensId,missing))
+	liginds = filterVertices(lrtg,:roleLR,f->f=="ligand",p->get(p,:ensId,missing))
+	targinds = [findfirst(x->x==vert,vmap) for vert in txList.geneInd]
+	targgenes = map(v->props(lrtg,v)[:entId],targinds)
+	recgenes = unique(recinds.val)
+	liggenes = unique(liginds.val)
+	return (recinds=recinds,liginds=liginds,targinds=targinds,
+			recgenes=recgenes,liggenes=liggenes,targgenes=targgenes,
+			graph=lrtg)
+end
+
 # get a collection of subgraphs, one for each target tree
 function getLigRecTargs(g)
 	# get the transcription targets (via graph traversal on g)
 	tt = getTransTargs(g)
-
+	tt = unique(tt,[:ctrlInd,:geneInd])
 	# get the graphs and special verts corresponding to lig rec
 	targetFeatures = Dict(:roleLR=>["ligand","receptor"])
 	paths = getTxGraphs(g,:in,tt,targetFeatures)
+end
+
+# get a subgraph of the union of single-target trees
+function getLigRecTarg(g)
+	# get the transcription targets (via graph traversal on g)
+	tt = getTransTargs(g)
+	tt = unique(tt,[:ctrlInd,:geneInd])
+	# get the graphs and special verts corresponding to lig rec
+	targetFeatures = Dict(:roleLR=>["ligand","receptor"])
+	paths = getTxGraph(g,:in,tt,targetFeatures)
 end
