@@ -78,43 +78,6 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 	return (df=dat,g=gr)
 end
 
-# returns a function
-function singlePathModel(ligT1,ligT2,pathT1,pathT2,targT1,targT2,σ²,λ)
-	@model function grouped_lasso(targT1,ligT1,ligT2,pathT1,pathT2,σ²,λ²)
-		# for pairwise model, only two groups for lasso: T1 (self) and T2 (other)
-		ngroups = 2
-
-		# for single pathway, the grouping matrix is the same size for every group
-		mₖ = size(ligT1)[2] + size(pathT1)[2] # number of ligands (recieving or sending cell) + number of pathway genes (recieving cell)
-
-		# number of observations
-		nobs = size(ligT1)[1]
-
-		# set variance prior (shrinkage of the group-wise linear coefficients)
-		τ² = Vector{Real}(undef,ngroups)
-		for i = 1:ngroups
-			τ²[i] ~ Gamma((mₖ+1)/2,λ²/2)
-		end
-
-		# set the coefficient prior
-		β = Vector{Real}(undef,ngroups)
-		for i = 1:ngroups
-			mu = fill(0,mₖ)
-			β[i] ~ MvNormal(mu,σ²*τ²[i])
-		end
-
-		# set the target distribution
-		ntarg = size(targT1)[2] # the number of target genes
-		for i = 1:nobs
-			mu = Vector{Real}(undef,ntarg)
-			for j = 1:ntarg
-				mu[j] = [ligT1' pathT1']' * β[1] + [ligT2' pathT2']' * β[2]
-			end
-			TargT1[i,:] ~ MvNormal(mu,σ²)
-		end
-	end
-end
-
 # get combinations of cells for pairwise population signaling
 # df is an expression matrix output by getCellTrees
 # T1,2::Dict is df.type=>df.subtype
@@ -207,4 +170,33 @@ function getPairwiseObs(
 		end
 	end
 	(targT1=targT1,ligT1=ligT1,ligT2=ligT2,pathT1=pathT1,pathT2=pathT2)
+end
+
+# condition and return a Turing.jl model on the data and training parameters
+function singlePathModel(targT1,ligT1,ligT2,pathT1,σ_pair,λ²_pair)
+	yTrain = targT1'
+	xTrain = [ligT1';pathT1';ligT2';pathT1']
+
+	@model function grouped_lasso(y, X, σ,λ²)
+		# number of observations and features
+		p, nobs = size(X)
+	    mk = div(p, 2)
+
+		# set variance prior (shrinkage of the group-wise linear coefficients)
+		τ² ~ filldist(Gamma((mk + 1) / 2, 2 / λ²), 2)
+
+		# set the coefficient prior
+		β ~ arraydist(MvNormal.(mk, σ .* sqrt.(τ²)))
+
+		# set the target distribution
+	    for i in 1:nobs
+	        mu = view(X, :, i)' * vec(β)
+			y[:, i] ~ MvNormal(fill(mu,size(y)[1]), Matrix(σ*I, size(y)[1], size(y)[1]))
+		end
+	end
+	model = grouped_lasso(yTrain,xTrain,σ_pair,λ²_pair)
+end
+
+function getSinglePathNetwork()
+
 end
