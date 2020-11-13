@@ -78,32 +78,133 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 	return (df=dat,g=gr)
 end
 
-# for several pathways
-# for a collection of cells do:
-# getPathSignal(cell,pathway)
-function getMultiPathModel()
-	@model function grouped_lasso(ligT1, ligT2, pathT1, pathT2, targT1, targT2, σ², λ²)
-		# set the scale prior
+# returns a function
+function singlePathModel(ligT1,ligT2,pathT1,pathT2,targT1,targT2,σ²,λ)
+	@model function grouped_lasso(targT1,ligT1,ligT2,pathT1,pathT2,σ²,λ²)
+		# for pairwise model, only two groups for lasso: T1 (self) and T2 (other)
+		ngroups = 2
 
-		# grouping priors: one prior per group per target
-		τ²[1] ~ Gamma((2+1)/2,λ²/2) # prior on coefs for cell type 1 autonomous
-		τ²[2] ~ Gamma((2+1)/2,λ²/2) # prior on coefs for cell type 1 non-autonomous
-		τ²[3] ~ Gamma((2+1)/2,λ²/2) # prior on coefs for cell type 2 autonomous
-		τ²[4] ~ Gamma((2+1)/2,λ²/2) # prior on coefs for cell type 2 non-autonomous
+		# for single pathway, the grouping matrix is the same size for every group
+		mₖ = size(ligT1)[2] + size(pathT1)[2] # number of ligands (recieving or sending cell) + number of pathway genes (recieving cell)
 
-		npath = size(pathT1,2) # number of pathway genes
-		nlig = size(ligT1,2)# number of ligand genes
+		# number of observations
+		nobs = size(ligT1)[1]
 
-		β[1] ~ MvNormal(npath+nlig,σ²*τ²[1]) # coef cell type 1 autonomous
-		β[2] ~ MvNormal(npath+nlig,σ²*τ²[2]) # coef cell type 1 non autonomous
-		β[3] ~ MvNormal(npath+nlig,σ²*τ²[3]) # coef cell type 2 autonomous
-		β[4] ~ MvNormal(npath+nlig,σ²*τ²[4]) # coef cell type 2 non autonomous
+		# set variance prior (shrinkage of the group-wise linear coefficients)
+		τ² = Vector{Real}(undef,ngroups)
+		for i = 1:ngroups
+			τ²[i] ~ Gamma((mₖ+1)/2,λ²/2)
+		end
 
-		targT1 ~ MvNormal(β[1]*[ligT1 pathT1] + β[2]*[ligT2 pathT1]) # piecewise autonomous (T1) non-autonomous (T2)
-		targT2 ~ MvNormal(β[1]*[ligT2 pathT2] + β[2]*[ligT1 pathT2]) # piecewise autonomous (T2) non-autonomous (T1)
+		# set the coefficient prior
+		β = Vector{Real}(undef,ngroups)
+		for i = 1:ngroups
+			mu = fill(0,mₖ)
+			β[i] ~ MvNormal(mu,σ²*τ²[i])
+		end
+
+		# set the target distribution
+		ntarg = size(targT1)[2] # the number of target genes
+		for i = 1:nobs
+			mu = Vector{Real}(undef,ntarg)
+			for j = 1:ntarg
+				mu[j] = [ligT1' pathT1']' * β[1] + [ligT2' pathT2']' * β[2]
+			end
+			TargT1[i,:] ~ MvNormal(mu,σ²)
+		end
 	end
 end
 
-# compose and fit the linear model
-function fitModel()
+# get combinations of cells for pairwise population signaling
+# df is an expression matrix output by getCellTrees
+# T1,2::Dict is df.type=>df.subtype
+function getPairwiseObs(
+			df_orig::DataFrame,
+			T1targIdx::Vector,T1ligIdx::Vector,T1pathIdx::Vector,
+			T2ligIdx::Vector,T2pathIdx::Vector,
+			T1::Dict,T2::Dict)
+	df = df_orig[findall(x->x==0,nonunique(df_orig)),:]
+	if !ismissing(first(values(T1)))
+		t1targ = filter(
+					row->row.type==first(keys(T1)) &&
+		    		row.subtype==first(values(T1)) &&
+				    any(in.(row.vertex,T1targIdx)),df)
+					select!(t1targ, Not(:vertex))
+					t1targ = t1targ[findall(x->x==0,nonunique(t1targ)),:]
+		t1lig = filter(
+					row->row.type==first(keys(T1)) &&
+		    		row.subtype==first(values(T1)) &&
+				    any(in.(row.vertex,T1ligIdx)),df)
+					select!(t1lig, Not(:vertex))
+					t1lig = t1lig[findall(x->x==0,nonunique(t1lig)),:]
+		t1path = filter(
+					row->row.type==first(keys(T1)) &&
+		    		row.subtype==first(values(T1)) &&
+				    any(in.(row.vertex,T1pathIdx)),df)
+					select!(t1path, Not(:vertex))
+					t1path = t1path[findall(x->x==0,nonunique(t1path)),:]
+	else
+		t1targ = filter(
+					row->row.type==first(keys(T1)) &&
+				    any(in.(row.vertex,T1targIdx)),df)
+					select!(t1targ, Not(:vertex))
+					t1targ = t1targ[findall(x->x==0,nonunique(t1targ)),:]
+		t1lig = filter(
+					row->row.type==first(keys(T1)) &&
+				    any(in.(row.vertex,T1ligIdx)),df)
+					select!(t1lig, Not(:vertex))
+					t1lig = t1lig[findall(x->x==0,nonunique(t1lig)),:]
+		t1path = filter(
+					row->row.type==first(keys(T1)) &&
+				    any(in.(row.vertex,T1pathIdx)),df)
+					select!(t1path, Not(:vertex))
+					t1path = t1path[findall(x->x==0,nonunique(t1path)),:]
+	end
+	if !ismissing(first(values(T2)))
+		t2lig = filter(
+					row->row.type==first(keys(T2)) &&
+		    		row.subtype==first(values(T2)) &&
+				    any(in.(row.vertex,T2ligIdx)),df)
+					select!(t2lig, Not(:vertex))
+					t2lig = t2lig[findall(x->x==0,nonunique(t2lig)),:]
+		t2path = filter(
+					row->row.type==first(keys(T2)) &&
+		    		row.subtype==first(values(T2)) &&
+				    any(in.(row.vertex,T2pathIdx)),df)
+					select!(t2path, Not(:vertex))
+					t2path = t2path[findall(x->x==0,nonunique(t2path)),:]
+	else
+		t2lig = filter(
+					row->row.type==first(keys(T2)) &&
+				    any(in.(row.vertex,T2ligIdx)),df)
+					select!(t2lig, Not(:vertex))
+					t2lig = t2lig[findall(x->x==0,nonunique(t2lig)),:]
+		t2path = filter(
+					row->row.type==first(keys(T2)) &&
+				    any(in.(row.vertex,T2pathIdx)),df)
+					select!(t2path, Not(:vertex))
+					t2path = t2path[findall(x->x==0,nonunique(t2path)),:]
+	end
+	t1bc = unique(t1lig.barcode)
+	t2bc = unique(t2lig.barcode)
+	n = length(t1bc)*length(t2bc) # the total number of observations
+
+	targT1 = Array{Float64,2}(undef,n,length(unique(t1targ.hgnc)))
+	ligT1 = Array{Float64,2}(undef,n,length(unique(t1lig.hgnc)))
+	ligT2 = Array{Float64,2}(undef,n,length(unique(t2lig.hgnc)))
+	pathT1 = Array{Float64,2}(undef,n,length(unique(t1path.hgnc)))
+	pathT2 = Array{Float64,2}(undef,n,length(unique(t2path.hgnc)))
+
+	idx = 1
+	for bc1 in t1bc
+		for bc2 in t2bc
+			targT1[idx,:] .= filter(row->row.barcode==bc1,t1targ).exp
+			ligT1[idx,:] .= filter(row->row.barcode==bc1,t1lig).exp
+			pathT1[idx,:] .= filter(row->row.barcode==bc1,t1path).exp
+			ligT2[idx,:] .= filter(row->row.barcode==bc2,t2lig).exp
+			pathT2[idx,:] .= filter(row->row.barcode==bc2,t2path).exp
+			idx += 1
+		end
+	end
+	(targT1=targT1,ligT1=ligT1,ligT2=ligT2,pathT1=pathT1,pathT2=pathT2)
 end

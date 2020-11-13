@@ -5,7 +5,7 @@ using DataFrames,LightGraphs,MetaGraphs
 using PCquery
 using JLD2
 
-export loadData,getPathSignal,getMultiPathModel,fitModel
+export loadData,getPathSignal,singlePathModel,getPairwiseObs
 
 export annotateGraphLRT!,getLigRecTargs,getTxGraphs,getLigRecTarg,getTxGraph
 
