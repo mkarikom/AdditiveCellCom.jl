@@ -4,6 +4,7 @@ using Turing
 using DataFrames,LightGraphs,MetaGraphs
 using PCquery
 using JLD2
+using LinearAlgebra
 
 export loadData,getPathSignal,singlePathModel,getPairwiseObs
 

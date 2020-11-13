@@ -197,6 +197,29 @@ function singlePathModel(targT1,ligT1,ligT2,pathT1,σ_pair,λ²_pair)
 	model = grouped_lasso(yTrain,xTrain,σ_pair,λ²_pair)
 end
 
-function getSinglePathNetwork()
-
+# run a turing model on all provided population combinations
+#
+function getSinglePathThread(
+			df::DataFrame,combos::Array{Tuple{String,String}},
+			Td::Dict)
+	# get the combos for pairwise obs
+	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
+	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
+	# dat = []
+	# for i in combos
+	# 	nc = i[1]
+	# 	env = i[2]
+	# 	println("getting $nc <- $env")
+	# 	T1=Dict("NC"=>nc)
+	# 	T2=Dict(env=>missing)
+	# 	pairs = getPairwiseObs(hpf18,targInd,ligInd,pathInd,
+	# 									ligInd,pathInd,T1,T2)
+	# 	σ_pair = 1.0
+	# 	λ²_pair = 2.0
+	# 	model = GCom.singlePathModel(pairs.targT1,pairs.ligT1,pairs.ligT2,pairs.pathT1,σ_pair,λ²_pair)
+	# 	chain = sample(model, NUTS(0.65), 50);
+	# 	push!(ntTOnc,(nc=nc,env=env,chain=chain))
+	# end
+	# dat
+	(T1arr,T2arr)
 end
