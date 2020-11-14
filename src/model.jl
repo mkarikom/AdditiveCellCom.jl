@@ -173,7 +173,7 @@ function getPairwiseObs(
 end
 
 # condition and return a Turing.jl model on the data and training parameters
-function singlePathModel(targT1,ligT1,ligT2,pathT1,σ_pair,λ²_pair)
+function singlePathPairedModel(targT1,ligT1,ligT2,pathT1,σ_pair,λ²_pair)
 	yTrain = targT1'
 	xTrain = [ligT1';pathT1';ligT2';pathT1']
 
@@ -199,7 +199,7 @@ end
 
 # run a turing model on all provided population combinations
 #
-function getSinglePath(
+function getSinglePathPaired(
 			df::DataFrame,combos::Array{Tuple{String,String}},
 			Td::Dict,Id::Dict,Sd::Dict)
 	# get the combos for pairwise obs
@@ -210,44 +210,45 @@ function getSinglePath(
 		println("obs combo $i")
 		T1=T1arr[i]
 		T2=T2arr[i]
-		pairs = getPairwiseObs(df,Id[:targInd],Id[:ligInd],Id[:pathInd],
+		obspair = getPairwiseObs(df,Id[:targInd],Id[:ligInd],Id[:pathInd],
 										Id[:ligInd],Id[:pathInd],T1,T2)
 		println("inference combo $i")
 		σ_pair = 1.0
 		λ²_pair = 2.0
-		model = GCom.singlePathModel(pairs.targT1,pairs.ligT1,pairs.ligT2,pairs.pathT1,σ_pair,λ²_pair)
+		model = singlePathPairedModel(obspair.targT1,obspair.ligT1,obspair.ligT2,obspair.pathT1,σ_pair,λ²_pair)
 		chain = sample(model, NUTS(0.65), Sd[:iter]);
 		push!(dat,(T1=T1,T2=T2,chain=chain))
 	end
 	dat
 end
 
-# run a turing model on all provided population combinations
+
+# # run a turing model on all provided population combinations
+# #
+# function getSinglePathPairedThread(
+# 			df::DataFrame,combos::Array{Tuple{String,String}},
+# 			Td::Dict,Id::Dict,Sd::Dict)
+# 	# get the combos for pairwise obs
+# 	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
+# 	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
+# 	dat = Vector{Vector{NamedTuple}}()
 #
-function getSinglePathThread(
-			df::DataFrame,combos::Array{Tuple{String,String}},
-			Td::Dict,Id::Dict,Sd::Dict)
-	# get the combos for pairwise obs
-	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
-	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
-	dat = Vector{Vector{NamedTuple}}()
-
-	for i in 1:Threads.nthreads()
-	  push!(dat,Vector{NamedTuple}())
-	end
-
-	Threads.@threads for i in 1:length(combos)
-		println("obs combo $i")
-		T1=T1arr[i]
-		T2=T2arr[i]
-		pairs = getPairwiseObs(df,Id[:targInd],Id[:ligInd],Id[:pathInd],
-										Id[:ligInd],Id[:pathInd],T1,T2)
-		println("inference combo $i")
-		σ_pair = 1.0
-		λ²_pair = 2.0
-		model = GCom.singlePathModel(pairs.targT1,pairs.ligT1,pairs.ligT2,pairs.pathT1,σ_pair,λ²_pair)
-		chain = sample(model, NUTS(0.65), Sd[:iter]);
-		push!(dat[Threads.threadid()],(T1=T1,T2=T2,chain=chain))
-	end
-	dat = reduce(vcat,reduce(vcat,dat))
-end
+# 	for i in 1:Threads.nthreads()
+# 	  push!(dat,Vector{NamedTuple}())
+# 	end
+# 	println("running threads: ",Threads.nthreads())
+# 	Threads.@threads for i in 1:length(combos)
+# 		println("obs combo $i")
+# 		T1=T1arr[i]
+# 		T2=T2arr[i]
+# 		obspair = getPairwiseObs(df,Id[:targInd],Id[:ligInd],Id[:pathInd],
+# 										Id[:ligInd],Id[:pathInd],T1,T2)
+# 		println("inference combo $i")
+# 		σ_pair = 1.0
+# 		λ²_pair = 2.0
+# 		model = GCom.singlePathPairedModel(obspair.targT1,obspair.ligT1,obspair.ligT2,obspair.pathT1,σ_pair,λ²_pair)
+# 		chain = sample(model, NUTS(0.65), Sd[:iter]);
+# 		push!(dat[Threads.threadid()],(T1=T1,T2=T2,chain=chain))
+# 	end
+# 	dat = reduce(vcat,reduce(vcat,dat))
+# end

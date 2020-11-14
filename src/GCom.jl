@@ -5,9 +5,10 @@ using DataFrames,LightGraphs,MetaGraphs
 using PCquery
 using JLD2
 using LinearAlgebra
+using Distributed
 
-export loadData,getPathSignal,singlePathModel,getPairwiseObs
-
+export loadData,getPathSignal,getPairwiseObs
+export getSinglePathPairedDistributed,getSinglePathPaired,singlePathPairedModelDistributed,singlePathPairedModel
 export annotateGraphLRT!,getLigRecTargs,getTxGraphs,getLigRecTarg,getTxGraph
 
 include("annotate.jl") # modification of graph
