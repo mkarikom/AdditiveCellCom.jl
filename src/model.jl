@@ -201,7 +201,7 @@ end
 #
 function getSinglePath(
 			df::DataFrame,combos::Array{Tuple{String,String}},
-			Td::Dict,Id::Dict)
+			Td::Dict,Id::Dict,Sd::Dict)
 	# get the combos for pairwise obs
 	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
 	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
@@ -216,7 +216,7 @@ function getSinglePath(
 		σ_pair = 1.0
 		λ²_pair = 2.0
 		model = GCom.singlePathModel(pairs.targT1,pairs.ligT1,pairs.ligT2,pairs.pathT1,σ_pair,λ²_pair)
-		chain = sample(model, NUTS(0.65), 10);
+		chain = sample(model, NUTS(0.65), Sd[:iter]);
 		push!(dat,(T1=T1,T2=T2,chain=chain))
 	end
 	dat
@@ -226,7 +226,7 @@ end
 #
 function getSinglePathThread(
 			df::DataFrame,combos::Array{Tuple{String,String}},
-			Td::Dict,Id::Dict)
+			Td::Dict,Id::Dict,Sd::Dict)
 	# get the combos for pairwise obs
 	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
 	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
@@ -246,7 +246,7 @@ function getSinglePathThread(
 		σ_pair = 1.0
 		λ²_pair = 2.0
 		model = GCom.singlePathModel(pairs.targT1,pairs.ligT1,pairs.ligT2,pairs.pathT1,σ_pair,λ²_pair)
-		chain = sample(model, NUTS(0.65), 200);
+		chain = sample(model, NUTS(0.65), Sd[:iter]);
 		push!(dat[Threads.threadid()],(T1=T1,T2=T2,chain=chain))
 	end
 	dat = reduce(vcat,reduce(vcat,dat))
