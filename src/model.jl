@@ -1,7 +1,3 @@
-# load single cell data into a data frame
-function loadData()
-end
-
 # for a single target tree
 # for a single orthoDist
 # for a single cell (bc::DataFrameRow) do:
@@ -78,98 +74,84 @@ function getCellTreesThread(targTree::AbstractMetaGraph,dist::Int,bcs::DataFrame
 	return (df=dat,g=gr)
 end
 
-# get combinations of cells for pairwise population signaling
-# df is an expression matrix output by getCellTrees
-# T1,2::Dict is df.type=>df.subtype
-function getPairwiseObs(
-			df_orig::DataFrame,
-			T1targIdx::Vector,T1ligIdx::Vector,T1pathIdx::Vector,
-			T2ligIdx::Vector,T2pathIdx::Vector,
-			T1::Dict,T2::Dict)
-	df = df_orig[findall(x->x==0,nonunique(df_orig)),:]
-	if !ismissing(first(values(T1)))
-		t1targ = filter(
-					row->row.type==first(keys(T1)) &&
-		    		row.subtype==first(values(T1)) &&
-				    any(in.(row.vertex,T1targIdx)),df)
-					select!(t1targ, Not(:vertex))
-					t1targ = t1targ[findall(x->x==0,nonunique(t1targ)),:]
-		t1lig = filter(
-					row->row.type==first(keys(T1)) &&
-		    		row.subtype==first(values(T1)) &&
-				    any(in.(row.vertex,T1ligIdx)),df)
-					select!(t1lig, Not(:vertex))
-					t1lig = t1lig[findall(x->x==0,nonunique(t1lig)),:]
-		t1path = filter(
-					row->row.type==first(keys(T1)) &&
-		    		row.subtype==first(values(T1)) &&
-				    any(in.(row.vertex,T1pathIdx)),df)
-					select!(t1path, Not(:vertex))
-					t1path = t1path[findall(x->x==0,nonunique(t1path)),:]
-	else
-		t1targ = filter(
-					row->row.type==first(keys(T1)) &&
-				    any(in.(row.vertex,T1targIdx)),df)
-					select!(t1targ, Not(:vertex))
-					t1targ = t1targ[findall(x->x==0,nonunique(t1targ)),:]
-		t1lig = filter(
-					row->row.type==first(keys(T1)) &&
-				    any(in.(row.vertex,T1ligIdx)),df)
-					select!(t1lig, Not(:vertex))
-					t1lig = t1lig[findall(x->x==0,nonunique(t1lig)),:]
-		t1path = filter(
-					row->row.type==first(keys(T1)) &&
-				    any(in.(row.vertex,T1pathIdx)),df)
-					select!(t1path, Not(:vertex))
-					t1path = t1path[findall(x->x==0,nonunique(t1path)),:]
-	end
-	if !ismissing(first(values(T2)))
-		t2lig = filter(
-					row->row.type==first(keys(T2)) &&
-		    		row.subtype==first(values(T2)) &&
-				    any(in.(row.vertex,T2ligIdx)),df)
-					select!(t2lig, Not(:vertex))
-					t2lig = t2lig[findall(x->x==0,nonunique(t2lig)),:]
-		t2path = filter(
-					row->row.type==first(keys(T2)) &&
-		    		row.subtype==first(values(T2)) &&
-				    any(in.(row.vertex,T2pathIdx)),df)
-					select!(t2path, Not(:vertex))
-					t2path = t2path[findall(x->x==0,nonunique(t2path)),:]
-	else
-		t2lig = filter(
-					row->row.type==first(keys(T2)) &&
-				    any(in.(row.vertex,T2ligIdx)),df)
-					select!(t2lig, Not(:vertex))
-					t2lig = t2lig[findall(x->x==0,nonunique(t2lig)),:]
-		t2path = filter(
-					row->row.type==first(keys(T2)) &&
-				    any(in.(row.vertex,T2pathIdx)),df)
-					select!(t2path, Not(:vertex))
-					t2path = t2path[findall(x->x==0,nonunique(t2path)),:]
-	end
-	t1bc = unique(t1lig.barcode)
-	t2bc = unique(t2lig.barcode)
-	n = length(t1bc)*length(t2bc) # the total number of observations
-
-	targT1 = Array{Float64,2}(undef,n,length(unique(t1targ.hgnc)))
-	ligT1 = Array{Float64,2}(undef,n,length(unique(t1lig.hgnc)))
-	ligT2 = Array{Float64,2}(undef,n,length(unique(t2lig.hgnc)))
-	pathT1 = Array{Float64,2}(undef,n,length(unique(t1path.hgnc)))
-	pathT2 = Array{Float64,2}(undef,n,length(unique(t2path.hgnc)))
-
-	idx = 1
-	for bc1 in t1bc
-		for bc2 in t2bc
-			targT1[idx,:] .= filter(row->row.barcode==bc1,t1targ).exp
-			ligT1[idx,:] .= filter(row->row.barcode==bc1,t1lig).exp
-			pathT1[idx,:] .= filter(row->row.barcode==bc1,t1path).exp
-			ligT2[idx,:] .= filter(row->row.barcode==bc2,t2lig).exp
-			pathT2[idx,:] .= filter(row->row.barcode==bc2,t2path).exp
-			idx += 1
+# filter by cell type and a vector of attributes (each defines a separate output table)
+# find |featInds| barcode/gene/expression matrices from
+# a cell type/subtype filter dict
+# variable number of featInds vectors of valid vertex indices
+function filterTypes(df::DataFrame,T::Dict,featInds::Vector...)
+	arrT = []
+	for i in 1:length(featInds)
+		if !ismissing(first(values(T))) # if the subtype is present, filter type and subtype
+			println("filtering on type=",first(keys(T)),",subtype=",first(values(T)))
+			df_type = filter(row->row.type==first(keys(T)) &&
+						  row.subtype==first(values(T)),df)
+		else # if the subtype is not present, filter type only
+			println("filtering on type=",first(keys(T)))
+			df_type = filter(row->row.type==first(keys(T)),df)
 		end
+		df_feat = filter(row->any(in.(row.vertex,featInds[i])),df_type)
+		# make sure barcode/type/gene is unique (eg by ignoring when the same gene comes up in different complexes, generating non-unique expression values for barcode/type/vertex/exp )
+		select!(df_feat, Not(:vertex))
+		unique!(df_feat)
+		push!(arrT,df_feat)
 	end
-	(targT1=targT1,ligT1=ligT1,ligT2=ligT2,pathT1=pathT1,pathT2=pathT2)
+	arrT
+end
+
+# get the product of all populations in arrT for the features in arrFeat
+# for each type in arrT, a corresponding set of features in arrFeat is pulled
+function getMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector)
+	df = df_orig[findall(x->x==0,nonunique(df_orig)),:]
+
+	arrTF = []
+	for t in 1:length(arrT)
+		arrT_i_F = filterTypes(df,arrT[t],[arrFeat[t]])
+		push!(arrTF,arrT_i_F...)
+	end
+
+	arrTFpiv = unstack.(arrTF,:barcode,:hgnc,:exp) # for each barcode, get genes as columns and expression as values
+	arrTFpiv = map(df->select(df,Not(:barcode)),arrTFpiv) # remove the barcode column, leaving only a matrix of expression
+	arrTFcross = crossjoin(arrTFpiv...,makeunique=true) # generate single cell samples of the cluster-wise state by computing the product
+	Matrix{Float64}(arrTFcross)
+	arrTFcross
+end
+
+# uniform sample from product of all populations in arrT for the features in arrFeat
+# for each type in arrT, a corresponding set of features in arrFeat is pulled
+function sampleMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector,nobs=Int)
+	df = df_orig[findall(x->x==0,nonunique(df_orig)),:]
+
+	arrTF = []
+	for t in 1:length(arrT)
+		arrT_i_F = filterTypes(df,arrT[t],[arrFeat[t]])
+		push!(arrTF,arrT_i_F...)
+	end
+	arrTFpiv = unstack.(arrTF,:barcode,:hgnc,:exp) # for each barcode, get genes as columns and expression as values
+	arrTFpiv = map(df->select(df,Not(:barcode)),arrTFpiv) # remove the barcode column, leaving only a matrix of expression
+
+	sizes = map(o->size(o)[1],arrTFpiv)
+	indices = StatsBase.sample.(map(x->[1:x;],sizes),nobs)
+	d = reduce(+,map(o->size(o)[2],arrTFpiv))
+	mat = Array{Float64,2}(undef,nobs,d)
+
+	println(size(mat))
+	println(d)
+	# println(indices)
+
+	for i in 1:nobs
+		matrow = []
+		for j in 1:length(arrTFpiv)
+			r = indices[j][i]
+			# println(arrTFpiv[j][r,:])
+			matrow = vcat(matrow,convert(Array,arrTFpiv[j][r,:]))
+			# println(length(matrow))
+
+		end
+		println(size(mat))
+		println(length(matrow))
+		mat[i,:] .= vec(matrow)
+	end
+	mat
 end
 
 # condition and return a Turing.jl model on the data and training parameters
@@ -221,34 +203,3 @@ function getSinglePathPaired(
 	end
 	dat
 end
-
-
-# # run a turing model on all provided population combinations
-# #
-# function getSinglePathPairedThread(
-# 			df::DataFrame,combos::Array{Tuple{String,String}},
-# 			Td::Dict,Id::Dict,Sd::Dict)
-# 	# get the combos for pairwise obs
-# 	T1arr = Dict.(map(get(Td,:T1p,""),combos) .=> map(get(Td,:T1sp,""),combos))
-# 	T2arr = Dict.(map(get(Td,:T2p,""),combos) .=> map(get(Td,:T2sp,""),combos))
-# 	dat = Vector{Vector{NamedTuple}}()
-#
-# 	for i in 1:Threads.nthreads()
-# 	  push!(dat,Vector{NamedTuple}())
-# 	end
-# 	println("running threads: ",Threads.nthreads())
-# 	Threads.@threads for i in 1:length(combos)
-# 		println("obs combo $i")
-# 		T1=T1arr[i]
-# 		T2=T2arr[i]
-# 		obspair = getPairwiseObs(df,Id[:targInd],Id[:ligInd],Id[:pathInd],
-# 										Id[:ligInd],Id[:pathInd],T1,T2)
-# 		println("inference combo $i")
-# 		σ_pair = 1.0
-# 		λ²_pair = 2.0
-# 		model = GCom.singlePathPairedModel(obspair.targT1,obspair.ligT1,obspair.ligT2,obspair.pathT1,σ_pair,λ²_pair)
-# 		chain = sample(model, NUTS(0.65), Sd[:iter]);
-# 		push!(dat[Threads.threadid()],(T1=T1,T2=T2,chain=chain))
-# 	end
-# 	dat = reduce(vcat,reduce(vcat,dat))
-# end
