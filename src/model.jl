@@ -112,8 +112,8 @@ function getMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector)
 	arrTFpiv = unstack.(arrTF,:barcode,:hgnc,:exp) # for each barcode, get genes as columns and expression as values
 	arrTFpiv = map(df->select(df,Not(:barcode)),arrTFpiv) # remove the barcode column, leaving only a matrix of expression
 	arrTFcross = crossjoin(arrTFpiv...,makeunique=true) # generate single cell samples of the cluster-wise state by computing the product
-	Matrix{Float64}(arrTFcross)
-	#arrTFcross
+	# Matrix{Float64}(arrTFcross)
+	# arrTFcross
 end
 
 # uniform sample from product of all populations in arrT for the features in arrFeat
@@ -133,11 +133,6 @@ function sampleMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector,nobs=Int
 	indices = StatsBase.sample.(map(x->[1:x;],sizes),nobs)
 	d = reduce(+,map(o->size(o)[2],arrTFpiv))
 	mat = Array{Float64,2}(undef,nobs,d)
-
-	println(size(mat))
-	println(d)
-	# println(indices)
-
 	for i in 1:nobs
 		matrow = []
 		for j in 1:length(arrTFpiv)
@@ -147,8 +142,6 @@ function sampleMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector,nobs=Int
 			# println(length(matrow))
 
 		end
-		println(size(mat))
-		println(length(matrow))
 		mat[i,:] .= vec(matrow)
 	end
 	mat
