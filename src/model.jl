@@ -78,40 +78,35 @@ end
 # find |featInds| barcode/gene/expression matrices from
 # a cell type/subtype filter dict
 # variable number of featInds vectors of valid vertex indices
-function filterTypes(df::DataFrame,T::Dict,featInds::Vector...)
-	arrT = []
-	for i in 1:length(featInds)
-		if !ismissing(first(values(T))) # if the subtype is present, filter type and subtype
-			println("filtering on type=",first(keys(T)),",subtype=",first(values(T)))
-			df_type = filter(row->row.type==first(keys(T)) &&
-						  row.subtype==first(values(T)),df)
-		else # if the subtype is not present, filter type only
-			println("filtering on type=",first(keys(T)))
-			df_type = filter(row->row.type==first(keys(T)),df)
-		end
-		df_feat = filter(row->any(in.(row.vertex,featInds[i])),df_type)
-		# make sure barcode/type/gene is unique (eg by ignoring when the same gene comes up in different complexes, generating non-unique expression values for barcode/type/vertex/exp )
-		select!(df_feat, Not(:vertex))
-		unique!(df_feat)
-		push!(arrT,df_feat)
+function filterTypes(df::DataFrame,T::Dict,featInds::Vector)
+	if !ismissing(first(values(T))) # if the subtype is present, filter type and subtype
+		println("filtering on type=",first(keys(T)),",subtype=",first(values(T)))
+		df_type = filter(row->row.type==first(keys(T)) &&
+					  row.subtype==first(values(T)),df)
+	else # if the subtype is not present, filter type only
+		println("filtering on type=",first(keys(T)))
+		df_type = filter(row->row.type==first(keys(T)),df)
 	end
-	arrT
+	df_t = filter(row->any(occursin.(row.hgnc,reduce(vcat,featInds))),df_type)
+	# make sure barcode/type/gene is unique (eg by ignoring when the same gene comes up in different complexes, generating non-unique expression values for barcode/type/vertex/exp )
+	select!(df_t, Not(:vertex))
+	unique!(df_t)
+	df_t
 end
 
 # get the product of all populations in arrT for the features in arrFeat
 # for each type in arrT, a corresponding set of features in arrFeat is pulled
 function getMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector)
-	df = df_orig[findall(x->x==0,nonunique(df_orig)),:]
-
+	df = unique(df_orig)
 	arrTF = []
 	for t in 1:length(arrT)
-		arrT_i_F = filterTypes(df,arrT[t],[arrFeat[t]])
-		push!(arrTF,arrT_i_F...)
+		# get the expression corresponding to this observation of the type (all from same barcode)
+		arrT_i_F = filterTypes(df,arrT[t],arrFeat[t])
+		# get cells x genes matrix, rearrange so that the columns correspond to blocks of beta coefficients
+		arrT_i_F = select(unstack(arrT_i_F,:barcode,:hgnc,:exp),reduce(vcat,arrFeat[t]))
+		push!(arrTF,arrT_i_F)
 	end
-
-	arrTFpiv = unstack.(arrTF,:barcode,:hgnc,:exp) # for each barcode, get genes as columns and expression as values
-	arrTFpiv = map(df->select(df,Not(:barcode)),arrTFpiv) # remove the barcode column, leaving only a matrix of expression
-	arrTFcross = crossjoin(arrTFpiv...,makeunique=true) # generate single cell samples of the cluster-wise state by computing the product
+	arrTFcross = crossjoin(arrTF...,makeunique=true) # generate single cell samples of the cluster-wise state by computing the product
 	# Matrix{Float64}(arrTFcross)
 	# arrTFcross
 end
