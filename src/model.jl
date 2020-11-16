@@ -113,7 +113,7 @@ function getMultiObs(df_orig::DataFrame,arrT::Vector,arrFeat::Vector)
 	arrTFpiv = map(df->select(df,Not(:barcode)),arrTFpiv) # remove the barcode column, leaving only a matrix of expression
 	arrTFcross = crossjoin(arrTFpiv...,makeunique=true) # generate single cell samples of the cluster-wise state by computing the product
 	Matrix{Float64}(arrTFcross)
-	arrTFcross
+	#arrTFcross
 end
 
 # uniform sample from product of all populations in arrT for the features in arrFeat
