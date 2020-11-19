@@ -11,7 +11,7 @@ using StatsBase
 export getPathSignals,getCellTrees,getCellTreesThread,getMultiObs,singlePathPairedModel,getSinglePathPaired,filterTypes
 export archiveBarcodeGraphs,archiveBarcodeExpression
 export annotateGraphLRT!,getLRtree,getLRgeneTree,getTransTargs,getTxGraphs,getTxGraph,getLigRecTargs,getLigRecTarg
-export prediction
+export prediction, checkScaling!
 
 include("annotate.jl") # modification of graph
 
