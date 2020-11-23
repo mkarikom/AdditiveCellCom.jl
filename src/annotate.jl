@@ -2,7 +2,7 @@
 function annotateGraphLRT!(g,dbParams)
 	## annotate graph vertices where a given GO molecular function was defined in the literature
 	# compose the fcnParams
-	goterms = Dict("GO_0038023"=>"receptor","GO_0048018"=>"ligand")
+	goterms = Dict("GO_0038023"=>"receptor","GO_0005102"=>"ligand")
 	fcnParams = Dict(
 		:goFilter=>delimitValues(collect(keys(goterms)),"http://nextprot.org/rdf/terminology/","<>"),
 		:dbFilter=>x->x.entId[findall(db->db=="uniprot knowledgebase",skipmissing(x.entIdDb))],
@@ -13,7 +13,10 @@ function annotateGraphLRT!(g,dbParams)
 	annLR = annotateGraphFcn!(fcnParams,g)
 
 	## annotate graph vertices with the native (eg human for pathway commons) gene ids
-	annGene = annotateGraphGene!(dbParams,g)
+	annP = annotateGraphP!(dbParams,g)
+
+	annG = annotateGraphG!(dbParams,g)
+	(lr=annLR,p=annP,g=annG)
 end
 
 
@@ -180,20 +183,31 @@ function getTxGraph(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFea
 		geneInd = txList[i,:geneInd]
 		ctrlInd = txList[i,:ctrlInd]
 		lrt = getLRgeneTree(g,:in,geneInd,ctrlInd,targetFeatures)
-		sgCtrlInd = findfirst(v->v==ctrlInd,lrt.vmap) # the vert ind of the ctrl entity in the new subgraph
-		sgGeneInd = findfirst(v->v==geneInd,lrt.vmap) # the vert ind of the target gene in the new subgraph
+		# make sure that receptors and ligands are reachable
+		if all(length.([lrt.v[v] for v in first(values(targetFeatures))]) .> 0)
+			sgCtrlInd = findfirst(v->v==ctrlInd,lrt.vmap) # the vert ind of the ctrl entity in the new subgraph
+			sgGeneInd = findfirst(v->v==geneInd,lrt.vmap) # the vert ind of the target gene in the new subgraph
 
-		# trace all paths from the product to the target features, eg ligands and receptors
-		p = dijkstra_shortest_paths(reverse(lrt.g), sgCtrlInd);
-		for ft in targetFeatures[:roleLR]
-			println("processing target feature $ft")
-			dst = filterVertices(lrt.g,:roleLR,f->f==ft)
-			ep = enumerate_paths(p,dst)
-			push!(pathverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(reduce(vcat,ep))])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
-			push!(allverts,lrt.vmap[unique(reduce(vcat,ep))]...) # eg for ex above push all verts in path [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127]...
-			push!(dstverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(dst)])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+			# trace all paths from the product to the target features, eg ligands and receptors
+			p = dijkstra_shortest_paths(reverse(lrt.g), sgCtrlInd);
+			for ft in targetFeatures[:roleLR]
+				println("processing target feature $ft")
+				dst = filterVertices(lrt.g,:roleLR,f->f==ft)
+				ep = enumerate_paths(p,dst)
+				push!(pathverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(reduce(vcat,ep))])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+				push!(allverts,lrt.vmap[unique(reduce(vcat,ep))]...) # eg for ex above push all verts in path [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127]...
+				push!(dstverts,(targ=props(lrt.g,sgGeneInd)[:entId],feat=ft,verts=lrt.vmap[unique(dst)])) # eg for targetFeatures[:ligand] push ("ligand", [46, 48, 49, 50, 51, 66, 67, 68, 45, 44  …  36, 26, 38, 37, 84, 88, 118, 122, 123, 127])
+			end
+			push!(allverts,geneInd) # add the target gene to the vertex list
+		else
+			tgene = map(x->props(g,x)[:displayName],txList.geneInd[i])
+			for v in first(values(targetFeatures))
+				lv = length(lrt.v[v])
+				if lv <= 0
+					println("$tgene unreachable from any $v")
+				end
+			end
 		end
-		push!(allverts,geneInd) # add the target gene to the vertex list
 	end
 	allverts = unique(allverts)
 
