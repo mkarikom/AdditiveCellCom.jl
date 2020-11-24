@@ -2,7 +2,8 @@
 function annotateGraphLRT!(g,dbParams)
 	## annotate graph vertices where a given GO molecular function was defined in the literature
 	# compose the fcnParams
-	goterms = Dict("GO_0038023"=>"receptor","GO_0005102"=>"ligand")
+	# goterms = Dict("GO_0038023"=>"receptor","GO_0005102"=>"ligand")
+	goterms = Dict("GO_0038023"=>"receptor","GO_0048018"=>"ligand")
 	fcnParams = Dict(
 		:goFilter=>delimitValues(collect(keys(goterms)),"http://nextprot.org/rdf/terminology/","<>"),
 		:dbFilter=>x->x.entId[findall(db->db=="uniprot knowledgebase",skipmissing(x.entIdDb))],
