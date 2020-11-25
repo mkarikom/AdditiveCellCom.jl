@@ -1,7 +1,7 @@
 name = "GCom"
 uuid = "c442aa85-5626-4e74-944d-fad50fba57b5"
 authors = ["Matt Karikomi <mattkarikomi@gmail.com> and contributors"]
-version = "0.2.5"
+version = "0.3.0"
 repo = "https://github.com/mkarikom/GCom.jl.git"
 
 [deps]

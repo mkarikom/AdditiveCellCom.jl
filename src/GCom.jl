@@ -8,10 +8,13 @@ using LinearAlgebra
 using Distributed
 using StatsBase
 
+export searchLR,searchT,enumerateLRT,quantMax,getOrthDist
 export getPathSignals,getCellTrees,getCellTreesThread,getMultiObs,singlePathPairedModel,getSinglePathPaired,filterTypes
 export archiveBarcodeGraphs,archiveBarcodeExpression
 export annotateGraphLRT!,getLRtree,getLRgeneTree,getTransTargs,getTxGraphs,getTxGraph,getLigRecTargs,getLigRecTarg
 export prediction, checkScaling!
+
+include("search.jl") # search the graph for ligand/receptor combos
 
 include("annotate.jl") # modification of graph
 

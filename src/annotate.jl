@@ -1,8 +1,8 @@
 
 function annotateGraphLRT!(g,dbParams)
-	## annotate graph vertices where a given GO molecular function was defined in the literature
-	# compose the fcnParams
-	# goterms = Dict("GO_0038023"=>"receptor","GO_0005102"=>"ligand")
+	## annotate graph vertices with nextprot info:
+	## 1) Protein and DNA ids
+	## 2) GO molecular function
 	goterms = Dict("GO_0038023"=>"receptor","GO_0048018"=>"ligand")
 	fcnParams = Dict(
 		:goFilter=>delimitValues(collect(keys(goterms)),"http://nextprot.org/rdf/terminology/","<>"),
@@ -225,6 +225,9 @@ function getTxGraph(g::AbstractMetaGraph,dir::Symbol,txList::DataFrame,targetFea
 			graph=lrtg)
 end
 
+##############################
+# use annotations to identify transduction trees
+##############################
 # get a collection of subgraphs, one for each target tree
 function getLigRecTargs(g)
 	# get the transcription targets (via graph traversal on g)
