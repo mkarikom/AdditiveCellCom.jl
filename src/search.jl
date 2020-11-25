@@ -125,18 +125,6 @@ function enumerateLRT(g,paths,drange)
                                          :target=>odt.upid))
             end
             push!(hgncOrth,orthv0hgnc)
-            # push!(upOrth,Dict(
-            #         Symbol(pv0[:roleLR])=>pv0[:entId],
-            #         Symbol(pv1[:roleLR])=>pv1[:entId],
-            #         :target=>ptarg[:entId]))
-            # push!(ensOrth,Dict(
-            #         Symbol(pv0[:roleLR])=>pv0[:ensId],
-            #         Symbol(pv1[:roleLR])=>pv1[:ensId],
-            #         :target=>ptarg[:ensId]))
-            # push!(hgncOrth,Dict(
-            #         Symbol(pv0[:roleLR])=>pv0[:gname],
-            #         Symbol(pv1[:roleLR])=>pv1[:gname],
-            #         :target=>ptarg[:gname]))
         end
     end
     (up0=unique(up0),ens0=unique(ens0),hgnc0=unique(hgnc0),hgncOrth=hgncOrth,upOrth=upOrth)
