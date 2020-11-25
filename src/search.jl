@@ -125,9 +125,19 @@ function enumerateLRT(g,paths,drange)
                                          :target=>odt.upid))
             end
             push!(hgncOrth,orthv0hgnc)
+            push!(upOrth,orthv0upid)
         end
     end
     (up0=unique(up0),ens0=unique(ens0),hgnc0=unique(hgnc0),hgncOrth=hgncOrth,upOrth=upOrth)
+end
+
+# create a triples dataframe from output of enumerateLRT
+function lrtDist(arr,dist)
+    df = DataFrame(ligand=Vector{Vector{String}}(),receptor=Vector{Vector{String}}(),target=Vector{Vector{String}}())
+    for a in arr
+        push!(df,a[dist])
+    end
+    unique(df)
 end
 
 # get the max ortholog expression for a native gene at the given vertex at a given distance
