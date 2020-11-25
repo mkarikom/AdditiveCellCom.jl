@@ -1,7 +1,8 @@
 module GCom
 
 using Turing
-using DataFrames,LightGraphs,MetaGraphs
+using DataFrames,Query
+using LightGraphs,MetaGraphs
 using PCquery
 using JLD2
 using LinearAlgebra
