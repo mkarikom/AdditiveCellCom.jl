@@ -3,6 +3,7 @@ function annotateGraphLRT!(g,dbParams)
 	## annotate graph vertices with nextprot info:
 	## 1) Protein and DNA ids
 	## 2) GO molecular function
+
 	goterms = Dict("GO_0038023"=>"receptor","GO_0048018"=>"ligand")
 	fcnParams = Dict(
 		:goFilter=>delimitValues(collect(keys(goterms)),"http://nextprot.org/rdf/terminology/","<>"),
@@ -230,6 +231,12 @@ end
 ##############################
 # get a collection of subgraphs, one for each target tree
 function getLigRecTargs(g)
+	# preliminary check to see if potential target genes and proteins are available
+	gene_v = filterVertices(g,:participantType,i->i=="http://www.biopax.org/release/biopax-level3.owl#Dna")
+	lig_v = filterVertices(g,:roleLR,v->v=="ligand")
+	rec_v = filterVertices(g,:roleLR,v->v=="receptor")
+	@assert length(gene_v) > 0 && length(lig_v) > 0 && length(rec_v) > 0 "must have genes, lig and rec to get path"
+
 	# get the transcription targets (via graph traversal on g)
 	tt = getTransTargs(g)
 	tt = unique(tt,[:ctrlInd,:geneInd])
@@ -240,6 +247,12 @@ end
 
 # get a subgraph of the union of single-target trees
 function getLigRecTarg(g)
+	# preliminary check to see if potential target genes and proteins are available
+	gene_v = filterVertices(g,:participantType,i->i=="http://www.biopax.org/release/biopax-level3.owl#Dna")
+	lig_v = filterVertices(g,:roleLR,v->v=="ligand")
+	rec_v = filterVertices(g,:roleLR,v->v=="receptor")
+	@assert length(gene_v) > 0 && length(lig_v) > 0 && length(rec_v) > 0 "must have genes, lig and rec to get path"
+
 	# get the transcription targets (via graph traversal on g)
 	tt = getTransTargs(g)
 	tt = unique(tt,[:ctrlInd,:geneInd])
