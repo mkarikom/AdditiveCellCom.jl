@@ -1,6 +1,6 @@
-using GCom
+using AdditiveCellCom
 using Test
 
-@testset "GCom.jl" begin
+@testset "AdditiveCellCom.jl" begin
     # Write your tests here.
 end

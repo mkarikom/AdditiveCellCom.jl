@@ -1,14 +1,14 @@
-using GCom
+using AdditiveCellCom
 using Documenter
 
 makedocs(;
-    modules=[GCom],
+    modules=[AdditiveCellCom],
     authors="Matt Karikomi <mattkarikomi@gmail.com> and contributors",
-    repo="https://github.com/mkarikom/GCom.jl/blob/{commit}{path}#L{line}",
-    sitename="GCom.jl",
+    repo="https://github.com/mkarikom/AdditiveCellCom.jl/blob/{commit}{path}#L{line}",
+    sitename="AdditiveCellCom.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://mkarikom.github.io/GCom.jl",
+        canonical="https://mkarikom.github.io/AdditiveCellCom.jl",
         assets=String[],
     ),
     pages=[
@@ -17,5 +17,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/mkarikom/GCom.jl",
+    repo="github.com/mkarikom/AdditiveCellCom.jl",
 )

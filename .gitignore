@@ -27,7 +27,6 @@ Manifest.toml
 # directories with lots of data
 triples/
 bigdata/
-#local/gcom/output/GCom_Data_Notch/
 
 ## r files
 .Rproj

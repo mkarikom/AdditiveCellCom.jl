@@ -32,8 +32,8 @@ jobs:
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
           using Documenter: doctest
-          using GCom
-          doctest(GCom)
+          using AdditiveCellCom
+          doctest(AdditiveCellCom)
           include("docs/make.jl")'
       after_success: skip
 after_success:

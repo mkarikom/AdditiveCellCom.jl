@@ -1,4 +1,4 @@
-module GCom
+module AdditiveCellCom
 
 using Turing
 using DataFrames,Query

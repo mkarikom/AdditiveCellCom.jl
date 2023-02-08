@@ -1,12 +1,12 @@
 ```@meta
-CurrentModule = GCom
+CurrentModule = AdditiveCellCom
 ```
 
-# GCom
+# AdditiveCellCom
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [GCom]
+Modules = [AdditiveCellCom]
 ```
