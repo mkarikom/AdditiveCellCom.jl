@@ -88,7 +88,7 @@ function getTransTargs(g::AbstractMetaGraph)
                 :ctrlRef,:geneRef,:protRef]
     coltypes = [Union{Missing,Int64},Union{Missing,Int64},Union{Missing,Int64},
                 Union{Missing,String},Union{Missing,String},Union{Missing,String}]
-    edgeTable = DataFrame(coltypes,colnames)
+	edgeTable = DataFrame(colnames .=> [type[] for type in coltypes])
 
 	for v in vertices(g)
 		# identify biochemical rxn
