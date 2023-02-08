@@ -25,7 +25,7 @@ Query = "~1.0"
 StatsBase = "~0.33"
 Turing = "~0.24"
 julia = "~1"
-PCquery = "~0.1"
+PCquery = "~0"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
