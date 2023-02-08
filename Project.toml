@@ -1,8 +1,8 @@
-name = "GCom"
+name = "AdditiveCellCom"
 uuid = "c442aa85-5626-4e74-944d-fad50fba57b5"
 authors = ["Matt Karikomi <mattkarikomi@gmail.com> and contributors"]
-repo = "https://github.com/mkarikom/GCom.jl.git"
-version = "0.3.1"
+repo = "https://github.com/mkarikom/AdditiveCellCom.jl.git"
+version = "0.3.7"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -18,6 +18,14 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [compat]
 julia = "1"
+DataFrames = "1.5"
+JLD2 = "0.5"
+LightGraphs = "1.4"
+MetaGraphs = "0.7"
+PCquery = "0.4"
+Query = "1.0"
+StatsBase = "0.34"
+Turing = "0.25"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
