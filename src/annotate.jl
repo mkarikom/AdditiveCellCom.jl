@@ -15,9 +15,41 @@ function annotateGraphLRT!(g,dbParams)
 
 	## annotate graph vertices with the native (eg human for pathway commons) gene ids
 	annP = annotateGraphP!(dbParams,g)
-
 	annG = annotateGraphG!(dbParams,g)
-	(lr=annLR,p=annP,g=annG)
+	
+	# find any transcription reactions in the graph
+	tt = getTransTargs(g)
+
+	# find ligand/receptor binding reactions in the graph
+	resgcg = searchLR(g)
+
+	# find paths from detected lig/rec binding to detected transcription reactions
+	paths = annotateT(g,resgcg,tt)
+
+	(lr=annLR,p=annP,g=annG,tt=tt,resgcg=resgcg,paths=paths)
+end
+
+## infer LRT triples by searching from LR sParam[:dec0] to a reachable target
+# only the target control vertex is generally accessible to transduction so add the index of the protein afterward
+function annotateT(g,lrset,targs)
+    paths = []
+    for t in 1:size(targs)[1]
+        set_prop!(g, targs.protInd[t], :roleLR, "target")
+        for l in lrset
+            dsp = dijkstra_shortest_paths(g,l[:dec0])
+            enum = enumerate_paths(dsp,targs.ctrlInd[t])
+            if length(enum) > 0
+                push!(paths,Dict(
+                        :dec0=>l[:dec0],
+                        :targCtrl=>targs.ctrlInd[t],
+                        :targProt=>targs.protInd[t],
+                        :paths=>enum,
+                        :v0=>l[:v0],
+                        :v1=>l[:v1]))
+            end
+        end
+    end
+    paths
 end
 
 # traverse inward edges from a start node and get values of target features

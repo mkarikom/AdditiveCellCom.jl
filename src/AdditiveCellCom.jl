@@ -9,7 +9,7 @@ using LinearAlgebra
 using Distributed
 using StatsBase
 
-export searchLR,searchT,enumerateLRT,quantMax,getOrthDist,lrtDist
+export searchLR,annotateT,enumerateLRT,quantMax,getOrthDist,lrtDist
 export getPathSignals,getCellTrees,getCellTreesThread,getMultiObs,singlePathPairedModel,getSinglePathPaired,filterTypes
 export archiveBarcodeGraphs,archiveBarcodeExpression
 export annotateGraphLRT!,getLRtree,getLRgeneTree,getTransTargs,getTxGraphs,getTxGraph,getLigRecTargs,getLigRecTarg

@@ -62,61 +62,41 @@ function searchChildren!(g,sParam)
     # Not Implmented
 end
 
-
-## infer LRT triples by searching from LR sParam[:dec0] to a reachable target
-# only the target control vertex is generally accessible to transduction so add the index of the protein afterward
-function searchT(g,lrset,targs)
-    paths = []
-    for t in 1:size(targs)[1]
-        for l in lrset
-            dsp = dijkstra_shortest_paths(g,l[:dec0])
-            enum = enumerate_paths(dsp,targs.ctrlInd[t])
-            if length(enum) > 0
-                push!(paths,Dict(
-                        :dec0=>l[:dec0],
-                        :targCtrl=>targs.ctrlInd[t],
-                        :targProt=>targs.protInd[t],
-                        :paths=>enum,
-                        :v0=>l[:v0],
-                        :v1=>l[:v1]))
-            end
-        end
-    end
-    paths
-end
-
 ## find all possible triples based on target paths from sParam[:d0]
-function enumerateLRT(g,paths,drange)
+function enumerateLRT(g,paths,drange;verbose=false)
     up0 = []
     ens0 = []
     hgnc0 = []
     upOrth = []
     hgncOrth = []
+    paths = unique(paths)
     for p in paths
+        verbose ? print("finding orthologs for $(findall(x->x==p, paths)[1]) in $(length(paths)) \n") : nothing
         v0 = p[:v0]
         for v1 in p[:v1]
-            pv0 = props(g,v0)
-            pv1 = props(g,v1)
-            ptarg = props(g,p[:targProt])
+            pv0 = props(g,v0) # the ligand
+            pv1 = props(g,v1) # the receptor
+            ptarg = props(g,p[:targProt]) # the target
             push!(up0,Dict(
                     Symbol(pv0[:roleLR])=>pv0[:entId],
                     Symbol(pv1[:roleLR])=>pv1[:entId],
-                    :target=>ptarg[:entId]))
+                    :target=>ptarg[:entId])) # uniprot ids for lig/rec/targ
             push!(ens0,Dict(
                     Symbol(pv0[:roleLR])=>pv0[:ensId],
                     Symbol(pv1[:roleLR])=>pv1[:ensId],
-                    :target=>ptarg[:ensId]))
+                    :target=>ptarg[:ensId])) # uniprot ids for lig/rec/targ
             push!(hgnc0,Dict(
                     Symbol(pv0[:roleLR])=>pv0[:gname],
                     Symbol(pv1[:roleLR])=>pv1[:gname],
-                    :target=>ptarg[:gname]))
+                    :target=>ptarg[:gname])) # nextprot ids for lig/rec/targ
 
+            # get the orthologs for lig/rec/targ at ortholog dist ∈ drange
             orthv0hgnc = Dict()
             orthv0upid = Dict()
             for d in drange
-                odv0 = getOrthDist(g,v0,d)
-                odv1 = getOrthDist(g,v1,d)
-                odt = getOrthDist(g,p[:targProt],d)
+                odv0 = getOrthDist(g,v0,d,verbose=verbose)
+                odv1 = getOrthDist(g,v1,d,verbose=verbose)
+                odt = getOrthDist(g,p[:targProt],d,verbose=verbose)
                 push!(orthv0hgnc,d=>Dict(Symbol(pv0[:roleLR])=>odv0.hgnc,
                                          Symbol(pv1[:roleLR])=>odv1.hgnc,
                                          :target=>odt.hgnc))
@@ -141,12 +121,12 @@ function lrtDist(arr,dist)
 end
 
 # get the max ortholog expression for a native gene at the given vertex at a given distance
-function quantMax(g,v,dist)
+function quantMax(g,v,dist;verbose=false)
     quantmax = missing
     if haskey(props(g,v),:orthoDist)
         vorth = props(g,v)[:orthoDist][dist][:members]
         if length(vorth) > 0
-            println("length of vorth is ",length(vorth))
+            verbose ? println("length of vorth is ",length(vorth)) : nothing
             if length(collect(skipmissing([haskey(vorth[o],:rnaSeq) ? vorth[o][:rnaSeq][:value] : missing for o in 1:length(vorth)]))) > 0
                 quantmax = reduce(max,skipmissing([haskey(vorth[o],:rnaSeq) ? vorth[o][:rnaSeq][:value] : missing for o in 1:length(vorth)]))
                 println(quantmax)
@@ -164,15 +144,17 @@ end
 
 # get all orthologs at the specified distance
 # ensemble gene ids are not always available from orthodb so omit them here
-function getOrthDist(g,v,dist)
+function getOrthDist(g,v,dist;verbose=false)
+    pv = props(g,v)
+    verbose ? print("finding orthologs for $(pv[:displayName]) ($(pv[:roleLR])) at distance $(dist) \n") : nothing
     hgnc = []
     upid = []
-    if haskey(props(g,v),:orthoDist)
-        vorth = props(g,v)[:orthoDist][dist][:members]
+    if haskey(pv,:orthoDist)
+        vorth = pv[:orthoDist][dist][:members]
         if length(vorth) > 0
-            println("length of vorth is ",length(vorth))
+            # verbose ? println("length of vorth is ",length(vorth)) : nothing
             for o in vorth
-                println("saving ids")
+                # verbose ? println("saving ids") : nothing
                 push!(hgnc,o[:orthoHGNC])
                 push!(upid,o[:orthoEntIds]...)
             end
