@@ -110,8 +110,6 @@ end
 #    1. ctrlInd (the vertex ind of the control physical entity that activates or suppresses transcription at geneInd))
 #    2. geneInd (the vertex ind of gene whose transcription is controlled by "ctrlInd", in general ctrlInd->geneInd is one-to-many)
 #    3. protInd (the vertex ind of protein product, in general geneInd->protInd is one-to-many)
-# CAUTION: ctrl rxns like https://reactome.org/content/detail/R-HSA-1980065 will cause the geneInd->protInd to break
-# In order to circumvent this only look at unique(edgeTable,[:ctrlInd,:geneInd]) for downstream analysis
 function getTransTargs(g::AbstractMetaGraph)
     ctrl = ["http://www.biopax.org/release/biopax-level3.owl#Catalysis",
  			"http://www.biopax.org/release/biopax-level3.owl#Control"]

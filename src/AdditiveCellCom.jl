@@ -14,6 +14,7 @@ export getPathSignals,getCellTrees,getCellTreesThread,getMultiObs,singlePathPair
 export archiveBarcodeGraphs,archiveBarcodeExpression
 export annotateGraphLRT!,getLRtree,getLRgeneTree,getTransTargs,getTxGraphs,getTxGraph,getLigRecTargs,getLigRecTarg
 export prediction, checkScaling!
+export summarizeTrajectories
 
 include("search.jl") # search the graph for ligand/receptor combos
 

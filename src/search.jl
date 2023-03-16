@@ -5,7 +5,7 @@ function searchLR(g)
     # find the lig/rec vertices
     lr = filterVertices(g,:roleLR,v->true)
     for v in lr
-        if indegree(g,v) == 0
+        if indegree(g,v) == 0 # take out the targets, we just want lig/rec
             # define the original lig or rec
             sParam = Dict(:role0=>props(g,v)[:roleLR], # the role of the vertex LR v0
                           :role1=>first(filter(r->r!=props(g,v)[:roleLR],("ligand","receptor"))), # the complement role
@@ -15,7 +15,8 @@ function searchLR(g)
                           :vexclude=>[v], # State: previously searched parents
                           :dec0=>nothing) # index of the closest descendent of v0 and v1
             println("searching $v")
-
+            
+            # outneighbors will always be a binding reaction
             for otn in outneighbors(g,v)
                 # start recursive search for complement in parent search mode
                 # when stop:
@@ -24,7 +25,7 @@ function searchLR(g)
                 sParam[:vcurrent]=otn
                 push!(sParam[:vexclude],v)
                 sParam[:dec0]=v
-                searchParents!(g,sParam)
+                searchParents!(g,sParam) # work up the tree to find all leaves that are parents of `otn`, these will be complements of `v0`
             end
             if length(sParam[:v1]) > 0
                 push!(res,sParam)
