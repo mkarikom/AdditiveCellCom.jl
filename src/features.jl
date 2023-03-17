@@ -6,7 +6,8 @@ function getPathSignals(g::AbstractMetaGraph,dist::Int,bc::DataFrameRow)
         ag = addExpression(g,bc,:orthoHGNC,:rnaSeq);
 	colnames = [:vertex,:hgnc,:exp]
 	coltypes = [Int64,String,Float64]
-	expTable = DataFrame(coltypes,colnames)
+	expTable = DataFrame(colnames .=> [type[] for type in coltypes])
+
         for v in 1:nv(ag)
 		if haskey(props(ag,v),:orthoDist)
 			odi = props(ag,v)[:orthoDist][dist][:members]
