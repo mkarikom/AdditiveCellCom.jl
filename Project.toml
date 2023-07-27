@@ -21,11 +21,11 @@ DataFrames = "~1"
 Graphs = "~1"
 JLD2 = "~0.4"
 MetaGraphs = "~0.7"
+PCquery = "~0.3"
 Query = "~1"
 StatsBase = "~0.33"
-Turing = "~0.24"
+Turing = "~0.24, 0.27"
 julia = "~1"
-PCquery = "~0.3"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
